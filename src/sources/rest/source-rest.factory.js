@@ -132,11 +132,26 @@
       }
 
       function update(config) {
+        var form = angular.copy(config.object.form);
+        var formAttribute = form.data.attributes;
+        var changedData = {};
+
+        for (var attribute in formAttribute) {
+          if (
+            formAttribute.hasOwnProperty(attribute) &&
+            formAttribute[attribute] !== config.object.data.attributes[attribute]
+          ) {
+            changedData[attribute] = formAttribute[attribute];
+          }
+        }
+
+        form.data.attributes = changedData;
+
         return $http({
           method: 'PATCH',
           headers: headers,
           url: url + '/' + config.object.data.id,
-          data: config.object.form.toJson()
+          data: form.toJson()
         }).then(resolveHttp, rejectHttp.bind(null, 'update'));
       }
 

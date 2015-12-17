@@ -48,7 +48,7 @@
         return $http({
           method: 'GET',
           headers: headers,
-          url: url,
+          url: config.url ? config.url : url,
           params: encodeParams(config.params)
         }).then(resolveHttp, rejectHttp.bind(null, 'all'));
       }

@@ -48,7 +48,7 @@
         return $http({
           method: 'GET',
           headers: headers,
-          url: url,
+          url: config.url ? config.url : url,
           params: encodeParams(config.params)
         }).then(resolveHttp, rejectHttp.bind(null, 'all'));
       }
@@ -87,7 +87,7 @@
         } else if (schema.type === 'hasMany') {
           if (config.target === undefined) {
             $http({
-              method: 'PUT',
+              method: 'PATCH',
               headers: headers,
               data: {data: []},
               url: url + '/' + config.object.data.id + '/relationships/' + config.key
@@ -114,7 +114,7 @@
           deferred.reject({errors: [{status: 0, statusText: 'Can\'t link object without id through rest call'}]});
         } else if (schema.type === 'hasOne') {
           $http({
-            method: 'PUT',
+            method: 'PATCH',
             headers: headers,
             data: {data: AngularJsonAPIModelLinkerService.toLinkData(config.target)},
             url: url + '/' + config.object.data.id + '/relationships/' + config.key
@@ -132,11 +132,26 @@
       }
 
       function update(config) {
+        var form = angular.copy(config.object.form);
+        var formAttribute = form.data.attributes;
+        var changedData = {};
+
+        for (var attribute in formAttribute) {
+          if (
+            formAttribute.hasOwnProperty(attribute) &&
+            formAttribute[attribute] !== config.object.data.attributes[attribute]
+          ) {
+            changedData[attribute] = formAttribute[attribute];
+          }
+        }
+
+        form.data.attributes = changedData;
+
         return $http({
-          method: 'PUT',
+          method: 'PATCH',
           headers: headers,
           url: url + '/' + config.object.data.id,
-          data: config.object.form.toJson()
+          data: form.toJson()
         }).then(resolveHttp, rejectHttp.bind(null, 'update'));
       }
 

@@ -55,7 +55,7 @@
         return $http({
           method: 'GET',
           headers: headers,
-          url: url,
+          url: config.url ? config.url : url,
           params: encodeParams(config.params)
         }).then(resolveHttp, rejectHttp.bind(null, 'all'));
       }
@@ -94,7 +94,7 @@
         } else if (schema.type === 'hasMany') {
           if (config.target === undefined) {
             $http({
-              method: 'PUT',
+              method: 'PATCH',
               headers: headers,
               data: {data: []},
               url: url + '/' + config.object.data.id + '/relationships/' + config.key
@@ -121,7 +121,7 @@
           deferred.reject({errors: [{status: 0, statusText: 'Can\'t link object without id through rest call'}]});
         } else if (schema.type === 'hasOne') {
           $http({
-            method: 'PUT',
+            method: 'PATCH',
             headers: headers,
             data: {data: AngularJsonAPIModelLinkerService.toLinkData(config.target)},
             url: url + '/' + config.object.data.id + '/relationships/' + config.key
@@ -139,11 +139,26 @@
       }
 
       function update(config) {
+        var form = angular.copy(config.object.form);
+        var formAttribute = form.data.attributes;
+        var changedData = {};
+
+        for (var attribute in formAttribute) {
+          if (
+            formAttribute.hasOwnProperty(attribute) &&
+            formAttribute[attribute] !== config.object.data.attributes[attribute]
+          ) {
+            changedData[attribute] = formAttribute[attribute];
+          }
+        }
+
+        form.data.attributes = changedData;
+
         return $http({
-          method: 'PUT',
+          method: 'PATCH',
           headers: headers,
           url: url + '/' + config.object.data.id,
-          data: config.object.form.toJson()
+          data: form.toJson()
         }).then(resolveHttp, rejectHttp.bind(null, 'update'));
       }
 
@@ -2290,6 +2305,15 @@
     .constant('namedFunction', namedFunction);
 
   function namedFunction(name, fn) {
+    var SPECIAL_CHARS_REGEXP = /([\:\-\_]+(.))/g;
+    var MOZ_HACK_REGEXP = /^moz([A-Z])/;
+
+    name = name.
+      replace(SPECIAL_CHARS_REGEXP, function(_, separator, letter, offset) {
+        return offset ? letter.toUpperCase() : letter;
+      }).
+      replace(MOZ_HACK_REGEXP, 'Moz$1');
+
     return new Function('fn',
       'return function ' + name + '(){ return fn.apply(this,arguments)}'
     )(fn);
@@ -3043,6 +3067,7 @@
     AngularJsonAPIModelErrorsManager,
     $rootScope,
     $injector,
+    $log,
     $q
   ) {
 
@@ -3085,8 +3110,15 @@
       _this.loadingCount = 0;
       _this.synchronized = false;
       _this.pristine = _this.data === undefined;
+      _this.paginated = false;
+      _this.url = void 0;
 
       _this.promise = $q.resolve(_this);
+
+      _this.first = first;
+      _this.last = last;
+      _this.prev = prev;
+      _this.next = next;
 
       var onObjectRemove = $rootScope.$on('angularJsonAPI:' + _this.type + ':object:remove', remove);
       var onFactoryClear = $rootScope.$on('angularJsonAPI:' + _this.type + ':resource:clearCache', clear);
@@ -3122,6 +3154,31 @@
         onObjectRemove();
         onFactoryClear();
         onObjectAdd();
+      }
+
+
+      function first() {
+        _this.url = _this.links.first;
+
+        return _this.fetch();
+      }
+
+      function last() {
+        _this.url = _this.links.last;
+
+        return _this.fetch();
+      }
+
+      function prev() {
+        _this.url = _this.links.prev;
+
+        return _this.fetch();
+      }
+
+      function next() {
+        _this.url = _this.links.next;
+
+        return _this.fetch();
       }
     }
 
@@ -3161,7 +3218,8 @@
       var $jsonapi = $injector.get('$jsonapi');
       var config = {
         action: 'all',
-        params: _this.params
+        params: _this.params,
+        url: _this.url
       };
 
       __incrementLoadingCounter(_this);
@@ -3186,7 +3244,6 @@
 
         _this.updatedAt = Date.now();
         _this.synchronized = true;
-        _this.pristine = false;
 
         _this.resource.cache.setIndexIds(_this.data);
         response.finish();
@@ -3230,7 +3287,7 @@
       }
     }
   }
-  AngularJsonAPICollectionWrapper.$inject = ["AngularJsonAPIModelSourceError", "AngularJsonAPIModelErrorsManager", "$rootScope", "$injector", "$q"];
+  AngularJsonAPICollectionWrapper.$inject = ["AngularJsonAPIModelSourceError", "AngularJsonAPIModelErrorsManager", "$rootScope", "$injector", "$log", "$q"];
 
   function __incrementLoadingCounter(object) {
     object = object === undefined ? this : object;

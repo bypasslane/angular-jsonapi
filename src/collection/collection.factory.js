@@ -9,6 +9,7 @@
     AngularJsonAPIModelErrorsManager,
     $rootScope,
     $injector,
+    $log,
     $q
   ) {
 
@@ -51,8 +52,15 @@
       _this.loadingCount = 0;
       _this.synchronized = false;
       _this.pristine = _this.data === undefined;
+      _this.paginated = false;
+      _this.url = void 0;
 
       _this.promise = $q.resolve(_this);
+
+      _this.first = first;
+      _this.last = last;
+      _this.prev = prev;
+      _this.next = next;
 
       var onObjectRemove = $rootScope.$on('angularJsonAPI:' + _this.type + ':object:remove', remove);
       var onFactoryClear = $rootScope.$on('angularJsonAPI:' + _this.type + ':resource:clearCache', clear);
@@ -88,6 +96,31 @@
         onObjectRemove();
         onFactoryClear();
         onObjectAdd();
+      }
+
+
+      function first() {
+        _this.url = _this.links.first;
+
+        return _this.fetch();
+      }
+
+      function last() {
+        _this.url = _this.links.last;
+
+        return _this.fetch();
+      }
+
+      function prev() {
+        _this.url = _this.links.prev;
+
+        return _this.fetch();
+      }
+
+      function next() {
+        _this.url = _this.links.next;
+
+        return _this.fetch();
       }
     }
 
@@ -127,7 +160,8 @@
       var $jsonapi = $injector.get('$jsonapi');
       var config = {
         action: 'all',
-        params: _this.params
+        params: _this.params,
+        url: _this.url
       };
 
       __incrementLoadingCounter(_this);
@@ -152,7 +186,6 @@
 
         _this.updatedAt = Date.now();
         _this.synchronized = true;
-        _this.pristine = false;
 
         _this.resource.cache.setIndexIds(_this.data);
         response.finish();
